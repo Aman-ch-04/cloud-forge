@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+import os
 import joblib
 import pandas as pd
 from flask_cors import CORS
@@ -12,7 +13,7 @@ import datetime
 app = Flask(__name__)
 CORS(app)
 
-app.config["SECRET_KEY"] = "cropx_secret_key"
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "cropx_secret_key")
 
 # Create DB tables
 Base.metadata.create_all(bind=engine)
