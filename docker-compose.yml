@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # Frontend Service - React/Nginx
+  # ============================================
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: cropx-frontend
+    ports:
+      - "80:80"
+    environment:
+      - REACT_APP_API_URL=http://34.228.74.217:5000
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - cropx-network
+    restart: unless-stopped
+    labels:
+      - "com.example.description=CropX Frontend"
+
+  # ============================================
+  # Backend Service - Flask API
+  # ============================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: cropx-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=production
+      - DATABASE_URL=sqlite:///cropx.db
+    volumes:
+      - ./backend:/app
+      - ./backend/cropx.db:/app/cropx.db
+    networks:
+      - cropx-network
+    restart: unless-stopped
+    labels:
+      - "com.example.description=CropX Backend API"
+
+networks:
+  cropx-network:
+    driver: bridge
+
+volumes:
+  db-data:
+    driver: local
