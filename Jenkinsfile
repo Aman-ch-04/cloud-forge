@@ -58,7 +58,8 @@ pipeline {
                             echo "🧪 Testing Backend..."
                             sh '''
                                 cd backend
-                                pip install -r ../requirements.txt
+                                python3 -m venv .venv
+                                .venv/bin/pip install -r ../requirements.txt
                                 # Add your test commands here
                                 # python -m pytest
                             '''
