@@ -132,9 +132,9 @@ pipeline {
                     sh '''
                         aws eks update-kubeconfig --region ${AWS_REGION} --name ${EKS_CLUSTER}
 
-                        kubectl set image deployment/cropx-frontend                           cropx-frontend=${ECR_REGISTRY}/${IMAGE_NAME_FRONTEND}:${IMAGE_TAG}
+                        kubectl set image deployment/cropx-frontend                           frontend=${ECR_REGISTRY}/${IMAGE_NAME_FRONTEND}:${IMAGE_TAG}
 
-                        kubectl set image deployment/cropx-backend                           cropx-backend=${ECR_REGISTRY}/${IMAGE_NAME_BACKEND}:${IMAGE_TAG}
+                        kubectl set image deployment/cropx-backend                           backend=${ECR_REGISTRY}/${IMAGE_NAME_BACKEND}:${IMAGE_TAG}
 
                         kubectl rollout status deployment/cropx-frontend --timeout=180s
                         kubectl rollout status deployment/cropx-backend --timeout=180s
