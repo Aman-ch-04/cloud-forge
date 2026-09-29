@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import type { FormEvent } from "react";
 import "./Login.css";
 
 export default function Login() {
@@ -59,7 +60,7 @@ export default function Login() {
   }
 
   // ⭐ HANDLE SUBMIT
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setMessage("");
@@ -75,8 +76,8 @@ export default function Login() {
       : { name, email, password };
 
     const url = isLogin
-      ? "http://127.0.0.1:5000/login"
-      : "http://127.0.0.1:5000/signup";
+      ? "http://54.221.59.137:5000/login"
+      : "http://54.221.59.137:5000/signup";
 
     try {
       const res = await fetch(url, {
