@@ -7,17 +7,14 @@ pipeline {
     }
 
     environment {
-        // Docker Registry Configuration
-        REGISTRY = 'docker.io'
-        REGISTRY_CREDENTIALS = 'docker-credentials'
+        // AWS ECR / EKS Configuration
+        AWS_REGION = 'us-east-1'
+        AWS_ACCOUNT_ID = '535002872767'
+        ECR_REGISTRY = '535002872767.dkr.ecr.us-east-1.amazonaws.com'
         IMAGE_NAME_FRONTEND = 'cropx-frontend'
         IMAGE_NAME_BACKEND = 'cropx-backend'
         IMAGE_TAG = "${BUILD_NUMBER}"
-
-        // Deployment Configuration
-        DEPLOYMENT_SERVER = 'your-ec2-ip'
-        DEPLOYMENT_USER = 'ec2-user'
-        DEPLOYMENT_PATH = '/opt/cropx'
+        EKS_CLUSTER = 'cloudforge-eks'
     }
 
     stages {
@@ -79,8 +76,8 @@ pipeline {
                         script {
                             echo "🐳 Building Frontend Docker Image..."
                             sh '''
-                                docker build -t ${REGISTRY}/${IMAGE_NAME_FRONTEND}:${IMAGE_TAG} \
-                                            -t ${REGISTRY}/${IMAGE_NAME_FRONTEND}:latest \
+                                docker build -t ${ECR_REGISTRY}/${IMAGE_NAME_FRONTEND}:${IMAGE_TAG} \
+                                            -t ${ECR_REGISTRY}/${IMAGE_NAME_FRONTEND}:latest \
                                             -f Dockerfile.frontend .
                                 docker images | grep ${IMAGE_NAME_FRONTEND}
                             '''
@@ -93,8 +90,8 @@ pipeline {
                         script {
                             echo "🐳 Building Backend Docker Image..."
                             sh '''
-                                docker build -t ${REGISTRY}/${IMAGE_NAME_BACKEND}:${IMAGE_TAG} \
-                                            -t ${REGISTRY}/${IMAGE_NAME_BACKEND}:latest \
+                                docker build -t ${ECR_REGISTRY}/${IMAGE_NAME_BACKEND}:${IMAGE_TAG} \
+                                            -t ${ECR_REGISTRY}/${IMAGE_NAME_BACKEND}:latest \
                                             -f Dockerfile.backend .
                                 docker images | grep ${IMAGE_NAME_BACKEND}
                             '''
@@ -105,64 +102,45 @@ pipeline {
         }
 
         // ============================================
-        // STAGE 4: Push to Registry
+        // STAGE 4: Push to AWS ECR
         // ============================================
-        stage('Push to Registry') {
-            when {
-                branch 'main'
-            }
+        stage('Push to ECR') {
             steps {
                 script {
-                    echo "📤 Pushing images to Docker Registry..."
-                    withCredentials([usernamePassword(credentialsId: "${REGISTRY_CREDENTIALS}",
-                                                     usernameVariable: 'DOCKER_USER',
-                                                     passwordVariable: 'DOCKER_PASS')]) {
-                        sh '''
-                            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                            docker push ${REGISTRY}/${IMAGE_NAME_FRONTEND}:${IMAGE_TAG}
-                            docker push ${REGISTRY}/${IMAGE_NAME_FRONTEND}:latest
-                            docker push ${REGISTRY}/${IMAGE_NAME_BACKEND}:${IMAGE_TAG}
-                            docker push ${REGISTRY}/${IMAGE_NAME_BACKEND}:latest
-                            docker logout
-                        '''
-                    }
+                    echo "📤 Logging in to AWS ECR and pushing images..."
+                    sh '''
+                        aws ecr get-login-password --region ${AWS_REGION} |                           docker login --username AWS --password-stdin ${ECR_REGISTRY}
+
+                                                
+                                                
+                        docker push ${ECR_REGISTRY}/${IMAGE_NAME_FRONTEND}:${IMAGE_TAG}
+                        docker push ${ECR_REGISTRY}/${IMAGE_NAME_FRONTEND}:latest
+                        docker push ${ECR_REGISTRY}/${IMAGE_NAME_BACKEND}:${IMAGE_TAG}
+                        docker push ${ECR_REGISTRY}/${IMAGE_NAME_BACKEND}:latest
+                    '''
                 }
             }
         }
 
         // ============================================
-        // STAGE 5: Deploy to EC2
+        // STAGE 5: Deploy to EKS
         // ============================================
-        stage('Deploy to EC2') {
-            when {
-                branch 'main'
-            }
+        stage('Deploy to EKS') {
             steps {
                 script {
-                    echo "🚀 Deploying to EC2..."
-                    sshagent(['ec2-key-credentials']) {
-                        sh '''
-                            ssh -o StrictHostKeyChecking=no ${DEPLOYMENT_USER}@${DEPLOYMENT_SERVER} "
-                                # Create deployment directory if not exists
-                                mkdir -p ${DEPLOYMENT_PATH}
+                    echo "🚀 Deploying CropX to EKS..."
+                    sh '''
+                        aws eks update-kubeconfig --region ${AWS_REGION} --name ${EKS_CLUSTER}
 
-                                # Pull latest images
-                                docker pull ${REGISTRY}/${IMAGE_NAME_FRONTEND}:latest
-                                docker pull ${REGISTRY}/${IMAGE_NAME_BACKEND}:latest
+                        kubectl set image deployment/cropx-frontend                           cropx-frontend=${ECR_REGISTRY}/${IMAGE_NAME_FRONTEND}:${IMAGE_TAG}
 
-                                # Stop running containers
-                                cd ${DEPLOYMENT_PATH}
-                                docker-compose down || true
+                        kubectl set image deployment/cropx-backend                           cropx-backend=${ECR_REGISTRY}/${IMAGE_NAME_BACKEND}:${IMAGE_TAG}
 
-                                # Start new containers
-                                docker-compose up -d
+                        kubectl rollout status deployment/cropx-frontend --timeout=180s
+                        kubectl rollout status deployment/cropx-backend --timeout=180s
 
-                                # Check deployment status
-                                sleep 5
-                                docker-compose ps
-                            "
-                        '''
-                    }
+                        kubectl get pods -o wide
+                    '''
                 }
             }
         }
@@ -173,18 +151,21 @@ pipeline {
         stage('Health Check') {
             steps {
                 script {
-                    echo "✅ Performing health checks..."
-                    retry(3) {
-                        sh '''
-                            # Check frontend
-                            curl -f http://${DEPLOYMENT_SERVER} || exit 1
-                            echo "Frontend is up!"
+                    echo "✅ Performing EKS health checks..."
+                    sh '''
+                        kubectl get deployments
+                        kubectl get pods
+                        kubectl get svc cropx-frontend-svc
 
-                            # Check backend
-                            curl -f http://${DEPLOYMENT_SERVER}:5000/ || exit 1
-                            echo "Backend is up!"
-                        '''
-                    }
+                        FRONTEND_URL=$(kubectl get svc cropx-frontend-svc                           -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+
+                        echo "Frontend LoadBalancer: ${FRONTEND_URL}"
+
+                        test -n "${FRONTEND_URL}"
+                        curl -f --max-time 20 http://${FRONTEND_URL}/health.html
+
+                        echo "Frontend is healthy!"
+                    '''
                 }
             }
         }
