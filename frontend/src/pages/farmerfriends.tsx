@@ -185,7 +185,7 @@ const FarmerFriendsAuto: React.FC = () => {
     addNextMessage(0);
   }, []);
 
-  const handleOptionClick = (postId: number, response: string) => {
+  const handleOptionClick = (response: string) => {
     const userReply: Post = {
       id: postIdCounter++,
       user: "You",
@@ -238,7 +238,7 @@ const FarmerFriendsAuto: React.FC = () => {
                 {post.options.map((opt, i) => (
                   <button
                     key={i}
-                    onClick={() => handleOptionClick(post.id, opt.response)}
+                    onClick={() => handleOptionClick(opt.response)}
                     style={{
                       padding: "8px 12px",
                       borderRadius: 8,

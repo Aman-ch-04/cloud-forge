@@ -98,26 +98,6 @@ const PredictCrop: React.FC = () => {
     setResult(data.crop);
   };
 
-  const handleAddCrop = async () => {
-    if (!result) return alert("Predict a crop first to add");
-    await fetch("http://127.0.0.1:5000/add_crop", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cropName: result, farmerName: "Farmer1" }),
-    });
-    alert(`Crop "${result}" added successfully!`);
-  };
-
-  const handleSelectCrop = async () => {
-    if (!result) return alert("No crop selected to save");
-    await fetch("http://127.0.0.1:5000/add_crop", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cropName: result, farmerName: "Farmer1" }),
-    });
-    alert(`Crop "${result}" saved to database!`);
-  };
-
   // --- Styles ---
   const cardStyle: React.CSSProperties = { backgroundColor: "#ffffff", borderRadius: 20, padding: 25, boxShadow: "0 8px 20px rgba(0,0,0,0.1)", marginBottom: 20 };
   const inputStyle: React.CSSProperties = { width: "100%", padding: 12, borderRadius: 12, border: "1px solid #c3dec1", marginTop: 8, outline: "none" };
